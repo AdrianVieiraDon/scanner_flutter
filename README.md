@@ -6,7 +6,7 @@ se configuran los permisos de cámara en **Android, iOS y Web**, incluido el
 caso en que el usuario **niega** el permiso.
 
 **Autor:** Julio Adrian Vieira Donado
-**Video:** _(pega aquí el enlace de YouTube no listado)_
+**Video:** [(https://youtu.be/4WVFr8mITH0)]
 
 ## Paquete usado
 
