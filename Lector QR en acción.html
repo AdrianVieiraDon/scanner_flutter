@@ -1,0 +1,406 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Lector QR en acción</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+/* Layout: un escenario fijo 1600×900 (16:9) escalado al ancho disponible, con controles debajo.
+   Paleta única y deliberada (la misma de las diapositivas), clara en cualquier tema. */
+:root {
+  --bg: #F4F7F5;      /* fondo de diapositiva */
+  --card: #FFFFFF;
+  --ink: #0F2A2E;     /* tinta / tarjeta oscura */
+  --ink-2: #163A3F;
+  --teal: #0F766E;    /* acento sobre claro */
+  --mint: #5EEAD4;    /* acento sobre oscuro */
+  --muted: #3D5552;
+  --soft: #BFD8D5;
+  --line: #D5E3DF;
+  --font-display: 'Rubik', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--bg); color: var(--ink); }
+body { font-family: var(--font-display); }
+.page { padding-block: 24px; padding-inline: 16px; display: flex; flex-direction: column; gap: 16px; align-items: center; }
+
+/* ---------- Escenario ---------- */
+.wrap { position: relative; width: 100%; max-width: 1600px; aspect-ratio: 16 / 9; overflow: hidden; background: var(--bg); border-radius: 12px; border: 1px solid var(--line); }
+.wrap:fullscreen { max-width: none; width: 100vw; height: 100vh; aspect-ratio: auto; border: none; border-radius: 0; }
+.stage { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0; }
+
+.eyebrow { position: absolute; left: 80px; top: 62px; margin: 0; font-size: 20px; font-weight: 500; letter-spacing: 4px; text-transform: uppercase; color: var(--teal); }
+.title { position: absolute; left: 80px; top: 92px; margin: 0; font-size: 60px; font-weight: 700; line-height: 1.1; color: var(--ink); }
+
+/* ---------- Zonas ---------- */
+.zone { position: absolute; top: 220px; width: 300px; height: 430px; background: var(--card); border: 2px solid var(--line); border-radius: 24px;
+  display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 22px 20px;
+  opacity: .38; transition: opacity .5s, transform .5s, border-color .5s, box-shadow .5s, background .5s; }
+.zone.on { opacity: 1; border-color: var(--teal); transform: translateY(-8px); box-shadow: 0 22px 48px rgba(15, 118, 110, .20); }
+.zone.done { opacity: 1; }
+.zone.dark { background: var(--ink); border-color: var(--ink); }
+.zone.dark.on { border-color: var(--mint); }
+.zhead { display: flex; align-items: center; gap: 12px; }
+.num { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-mono); font-weight: 700; font-size: 18px; background: var(--teal); color: #FFFFFF; }
+.dark .num { background: var(--mint); color: var(--ink); }
+.zname { font-size: 28px; font-weight: 700; color: var(--ink); }
+.dark .zname { color: #F4F7F5; }
+.zsub { margin: 0; font-size: 19px; color: var(--muted); text-align: center; }
+.dark .zsub { color: var(--soft); }
+.vis { position: relative; width: 260px; height: 286px; display: grid; place-items: center; }
+.check { position: absolute; top: -14px; right: -14px; width: 40px; height: 40px; border-radius: 50%; background: var(--teal); color: #FFFFFF;
+  display: grid; place-items: center; font-weight: 700; font-size: 22px; transform: scale(0); transition: transform .35s cubic-bezier(.3,1.6,.5,1); }
+.dark .check { background: var(--mint); color: var(--ink); }
+.zone.done .check { transform: scale(1); }
+
+/* Zona 1: cámara */
+.phone { position: relative; width: 168px; height: 262px; border: 7px solid var(--ink); border-radius: 30px; background: #2B4448; overflow: hidden; display: grid; place-items: center; }
+.phone::before { content: ""; position: absolute; top: 8px; left: 50%; width: 44px; height: 7px; border-radius: 4px; background: var(--ink); transform: translateX(-50%); z-index: 3; }
+.feed { position: absolute; inset: 0; background: linear-gradient(160deg, #6B5A45, #3E4E4C 60%, #2B4448); }
+.liveqr { position: relative; width: 104px; height: 104px; transform: rotate(-6deg); }
+.on .liveqr { animation: wobble 1.4s ease-in-out infinite; }
+@keyframes wobble { 0%,100% { transform: rotate(-6deg) translate(0,0); } 50% { transform: rotate(-3deg) translate(3px,-4px); } }
+.vf { position: absolute; width: 30px; height: 30px; border: 4px solid var(--mint); z-index: 2; }
+.vf.tl { top: 52px; left: 22px; border-right: none; border-bottom: none; }
+.vf.tr { top: 52px; right: 22px; border-left: none; border-bottom: none; }
+.vf.bl { bottom: 52px; left: 22px; border-right: none; border-top: none; }
+.vf.br { bottom: 52px; right: 22px; border-left: none; border-top: none; }
+.on .vf { animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+.rec { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 2; white-space: nowrap;
+  font-family: var(--font-mono); font-size: 13px; color: #F4F7F5; background: rgba(15, 42, 46, .8); padding: 4px 10px; border-radius: 99px; }
+.rec b { color: #F87171; }
+
+/* Zona 2: fotograma */
+.frame { position: relative; width: 226px; height: 226px; padding: 16px; border-radius: 10px; border: 3px solid var(--ink);
+  background: linear-gradient(135deg, #E7C79F, #B88E66); opacity: 0; transform: scale(.4); transition: opacity .4s, transform .5s cubic-bezier(.3,1.4,.5,1), filter .8s; }
+.frame.show { opacity: 1; transform: scale(1); }
+.frame.gray { filter: grayscale(1) contrast(1.35); }
+.frame svg { width: 100%; height: 100%; display: block; }
+.grid { position: absolute; inset: 16px; opacity: 0; transition: opacity .6s;
+  background-image: repeating-linear-gradient(0deg, rgba(15,118,110,.55) 0 1px, transparent 1px 7.76px), repeating-linear-gradient(90deg, rgba(15,118,110,.55) 0 1px, transparent 1px 7.76px); }
+.frame.gray .grid { opacity: 1; }
+.flabel { position: absolute; left: 50%; bottom: -2px; transform: translateX(-50%); white-space: nowrap; font-family: var(--font-mono); font-size: 15px;
+  color: var(--teal); opacity: 0; transition: opacity .4s; }
+.flabel.show { opacity: 1; }
+
+/* Zona 3: motor de visión */
+.engine { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.eqr { position: relative; width: 164px; height: 164px; background: #FFFFFF; border-radius: 8px; overflow: hidden; }
+.eqr svg { width: 100%; height: 100%; display: block; }
+.fb { position: absolute; width: 32%; height: 32%; border: 4px solid #F59E0B; border-radius: 6px; transform: scale(1.6); opacity: 0;
+  transition: transform .35s cubic-bezier(.3,1.5,.5,1), opacity .25s; }
+.fb.show { transform: scale(1); opacity: 1; }
+.fb.a { left: 6%; top: 6%; } .fb.b { left: 62%; top: 6%; } .fb.c { left: 6%; top: 62%; }
+.scan { position: absolute; left: 0; right: 0; top: -6px; height: 6px; background: var(--mint); box-shadow: 0 0 18px 6px rgba(94, 234, 212, .7); opacity: 0; }
+.scan.go { animation: sweep 1.4s linear forwards; }
+@keyframes sweep { 0% { top: -6px; opacity: 1; } 95% { opacity: 1; } 100% { top: 164px; opacity: 0; } }
+.bits { display: flex; flex-direction: column; gap: 4px; font-family: var(--font-mono); font-size: 18px; color: #F4F7F5; min-height: 108px; }
+.bits div { opacity: 0; transform: translateY(6px); transition: opacity .25s, transform .25s; white-space: nowrap; }
+.bits div.show { opacity: 1; transform: none; }
+.bits span { color: var(--mint); font-weight: 700; }
+
+/* Zona 4: texto en la app */
+.app { position: relative; width: 210px; height: 262px; border: 7px solid var(--ink); border-radius: 30px; background: #F7FAF9; overflow: hidden; display: flex; flex-direction: column; }
+.appbar { height: 46px; background: var(--teal); color: #FFFFFF; font-size: 15px; font-weight: 500; display: flex; align-items: flex-end; padding: 0 12px 8px; }
+.result { margin: 14px 10px; padding: 12px; border-radius: 12px; background: #FFFFFF; border: 1px solid var(--line); box-shadow: 0 6px 16px rgba(15, 42, 46, .10);
+  display: flex; flex-direction: column; gap: 6px; opacity: 0; transform: translateY(10px) scale(.95); transition: opacity .35s, transform .4s cubic-bezier(.3,1.4,.5,1); }
+.result.show { opacity: 1; transform: none; }
+.result h4 { margin: 0; font-size: 16px; color: var(--ink); display: flex; gap: 6px; align-items: center; }
+.url { font-family: var(--font-mono); font-size: 13px; color: var(--teal); word-break: break-all; min-height: 52px; }
+.caret { display: inline-block; width: 7px; height: 14px; background: var(--teal); vertical-align: -2px; animation: pulse .8s steps(1) infinite; }
+.chip { position: absolute; top: -6px; left: 50%; transform: translate(-50%, -8px); white-space: nowrap; z-index: 4;
+  font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--ink); background: var(--mint); padding: 5px 12px; border-radius: 99px;
+  opacity: 0; transition: opacity .3s, transform .35s; }
+.chip.show { opacity: 1; transform: translate(-50%, -18px); }
+
+/* Flechas y ficha viajera */
+.arrow { position: absolute; top: 425px; width: 64px; height: 24px; }
+.arrow line, .arrow path { stroke: var(--line); stroke-width: 4; fill: none; stroke-linecap: round; stroke-linejoin: round; transition: stroke .4s; }
+.arrow.on line, .arrow.on path { stroke: var(--teal); }
+.token { position: absolute; top: 400px; width: 76px; height: 76px; padding: 7px; background: #FFFFFF; border: 3px solid var(--teal); border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(15, 42, 46, .25); opacity: 0; z-index: 10; transition: left .75s cubic-bezier(.6,0,.3,1), opacity .2s; }
+.token.show { opacity: 1; }
+.token svg { width: 100%; height: 100%; display: block; }
+
+/* Leyenda inferior */
+.caption { position: absolute; left: 80px; top: 690px; width: 1440px; height: 116px; border-radius: 24px; background: var(--ink); color: #F4F7F5;
+  display: flex; align-items: center; gap: 32px; padding: 0 40px; }
+.stepno { font-family: var(--font-mono); font-size: 20px; font-weight: 700; color: var(--mint); white-space: nowrap; min-width: 120px; }
+.captext { flex: 1; font-size: 30px; line-height: 1.3; margin: 0; transition: opacity .3s; text-wrap: balance; }
+.dots { display: flex; gap: 10px; }
+.dots i { width: 14px; height: 14px; border-radius: 50%; background: var(--ink-2); border: 2px solid var(--soft); transition: background .3s; }
+.dots i.on { background: var(--mint); border-color: var(--mint); }
+.foot { position: absolute; left: 80px; top: 832px; margin: 0; font-size: 20px; color: var(--muted); font-family: var(--font-mono); }
+
+/* ---------- Controles ---------- */
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; max-width: 1600px; width: 100%; }
+.controls button { font: 500 15px var(--font-display); padding: 10px 18px; border-radius: 10px; border: 2px solid var(--teal); background: var(--card); color: var(--teal); cursor: pointer; }
+.controls button.primary { background: var(--teal); color: #FFFFFF; }
+.controls button[aria-pressed="true"] { background: #DDF3EF; }
+.controls button:focus-visible { outline: 3px solid var(--mint); outline-offset: 2px; }
+.hint { font-size: 14px; color: var(--muted); }
+body.clean .controls { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+</style>
+
+<div class="page">
+  <div class="wrap" id="wrap">
+    <div class="stage" id="stage" aria-label="Animación: cómo funciona el lector de códigos QR">
+      <p class="eyebrow">Cómo funciona el lector</p>
+      <h2 class="title">De la cámara al texto</h2>
+
+      <div class="zone" id="z0" style="left:80px">
+        <div class="zhead"><span class="num">1</span><span class="zname">Cámara</span></div>
+        <div class="vis">
+          <div class="phone">
+            <div class="feed"></div>
+            <span class="vf tl"></span><span class="vf tr"></span><span class="vf bl"></span><span class="vf br"></span>
+            <div class="liveqr" id="qrLive"></div>
+            <span class="rec"><b>●</b> REC · <span id="fcount">0000</span></span>
+          </div>
+          <span class="check">✓</span>
+        </div>
+        <p class="zsub">Captura video en vivo</p>
+      </div>
+
+      <div class="zone" id="z1" style="left:460px">
+        <div class="zhead"><span class="num">2</span><span class="zname">Fotograma</span></div>
+        <div class="vis">
+          <div class="frame" id="frame"><div id="qrFrame"></div><div class="grid"></div></div>
+          <span class="flabel" id="flabel">escala de grises → módulos</span>
+          <span class="check">✓</span>
+        </div>
+        <p class="zsub">Se analiza cada imagen</p>
+      </div>
+
+      <div class="zone dark" id="z2" style="left:840px">
+        <div class="zhead"><span class="num">3</span><span class="zname">Motor de visión</span></div>
+        <div class="vis">
+          <div class="engine">
+            <div class="eqr"><div id="qrEngine"></div>
+              <span class="fb a"></span><span class="fb b"></span><span class="fb c"></span>
+              <span class="scan" id="scan"></span>
+            </div>
+            <div class="bits" id="bits"></div>
+          </div>
+          <span class="check">✓</span>
+        </div>
+        <p class="zsub">Detecta y decodifica</p>
+      </div>
+
+      <div class="zone" id="z3" style="left:1220px">
+        <div class="zhead"><span class="num">4</span><span class="zname">Texto</span></div>
+        <div class="vis">
+          <span class="chip" id="chip">onDetect(captura)</span>
+          <div class="app">
+            <div class="appbar">Escáner QR</div>
+            <div class="result" id="result">
+              <h4>🔗 Enlace detectado</h4>
+              <div class="url"><span id="url"></span><span class="caret"></span></div>
+            </div>
+          </div>
+          <span class="check">✓</span>
+        </div>
+        <p class="zsub">Llega a la app en onDetect</p>
+      </div>
+
+      <svg class="arrow" id="a0" style="left:388px" viewBox="0 0 64 24" aria-hidden="true"><line x1="4" y1="12" x2="56" y2="12"/><path d="M46 3 L57 12 L46 21"/></svg>
+      <svg class="arrow" id="a1" style="left:768px" viewBox="0 0 64 24" aria-hidden="true"><line x1="4" y1="12" x2="56" y2="12"/><path d="M46 3 L57 12 L46 21"/></svg>
+      <svg class="arrow" id="a2" style="left:1148px" viewBox="0 0 64 24" aria-hidden="true"><line x1="4" y1="12" x2="56" y2="12"/><path d="M46 3 L57 12 L46 21"/></svg>
+
+      <div class="token" id="token"><div id="qrToken"></div></div>
+
+      <div class="caption">
+        <span class="stepno" id="stepno">Listo</span>
+        <p class="captext" id="captext">Pulsa Reproducir para ver el proceso paso a paso.</p>
+        <div class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      </div>
+      <p class="foot">mobile_scanner · Android: ML Kit · iOS: Apple Vision · Web: BarcodeDetector / ZXing</p>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="primary" id="play" type="button">▶ Reproducir</button>
+    <button id="loop" type="button" aria-pressed="false">↻ Repetir en bucle</button>
+    <button id="full" type="button">⛶ Pantalla completa</button>
+    <button id="clean" type="button">Ocultar controles</button>
+    <span class="hint">Atajos: Espacio = reproducir · F = pantalla completa · H = mostrar/ocultar controles</span>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const URL_TEXT = 'https://pub.dev/packages/mobile_scanner';
+
+  // ---------- Código QR de ejemplo (21×21 módulos, ilustrativo) ----------
+  function matrix() {
+    let seed = 20261012;
+    const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+    const n = 21, m = [];
+    for (let y = 0; y < n; y++) { m.push([]); for (let x = 0; x < n; x++) m[y].push(rnd() < 0.5); }
+    const finder = (ox, oy) => {
+      for (let y = -1; y <= 7; y++) for (let x = -1; x <= 7; x++) {
+        const X = ox + x, Y = oy + y;
+        if (X < 0 || Y < 0 || X >= n || Y >= n) continue;
+        const ring = x >= 0 && x <= 6 && y >= 0 && y <= 6 && (x === 0 || x === 6 || y === 0 || y === 6);
+        const core = x >= 2 && x <= 4 && y >= 2 && y <= 4;
+        m[Y][X] = ring || core;
+      }
+    };
+    finder(0, 0); finder(14, 0); finder(0, 14);
+    for (let i = 8; i < 13; i++) { m[6][i] = i % 2 === 0; m[i][6] = i % 2 === 0; }
+    return m;
+  }
+  const M = matrix();
+  function qrSVG(fg, bg) {
+    let r = '';
+    M.forEach((row, y) => row.forEach((on, x) => { if (on) r += `<rect x="${x + 2}" y="${y + 2}" width="1" height="1"/>`; }));
+    return `<svg viewBox="0 0 25 25" shape-rendering="crispEdges" aria-hidden="true"><rect width="25" height="25" fill="${bg}"/><g fill="${fg}">${r}</g></svg>`;
+  }
+  $('qrLive').innerHTML = qrSVG('#14262A', '#F4F1EA');
+  $('qrFrame').innerHTML = qrSVG('#1E3A40', '#F7F3EA');
+  $('qrEngine').innerHTML = qrSVG('#0F2A2E', '#FFFFFF');
+  $('qrToken').innerHTML = qrSVG('#0F2A2E', '#FFFFFF');
+
+  // ---------- Escalado del escenario 1600×900 ----------
+  const wrap = $('wrap'), stage = $('stage');
+  function fit() {
+    const r = wrap.getBoundingClientRect();
+    const s = Math.min(r.width / 1600, r.height / 900);
+    stage.style.transform = `translate(${(r.width - 1600 * s) / 2}px, ${(r.height - 900 * s) / 2}px) scale(${s})`;
+  }
+  new ResizeObserver(fit).observe(wrap); fit();
+
+  // ---------- Línea de tiempo ----------
+  const zones = [0, 1, 2, 3].map((i) => $('z' + i));
+  const arrows = [0, 1, 2].map((i) => $('a' + i));
+  const dots = [...document.querySelectorAll('.dots i')];
+  const token = $('token');
+  const centerX = (i) => 230 + 380 * i - 38;
+  const captions = [
+    'Pulsa Reproducir para ver el proceso paso a paso.',
+    'La cámara captura video en vivo: decenas de imágenes por segundo.',
+    'Se toma un fotograma y se pasa a escala de grises para analizar sus módulos.',
+    'El motor de visión ubica los tres cuadros de las esquinas y lee los módulos como bits.',
+    'Los bits se convierten en texto y llegan a la app en la función onDetect.',
+    'Esto se repite con cada fotograma hasta encontrar un código.'
+  ];
+  let run = 0, counter = null, frameNo = 0;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  function setCaption(i, label) {
+    $('stepno').textContent = label;
+    $('captext').textContent = captions[i];
+    dots.forEach((d, k) => d.classList.toggle('on', k < Math.min(i, 4)));
+  }
+  function reset() {
+    clearInterval(counter); frameNo = 0; $('fcount').textContent = '0000';
+    zones.forEach((z) => z.classList.remove('on', 'done'));
+    arrows.forEach((a) => a.classList.remove('on'));
+    $('frame').classList.remove('show', 'gray'); $('flabel').classList.remove('show');
+    document.querySelectorAll('.fb').forEach((f) => f.classList.remove('show'));
+    $('scan').classList.remove('go'); $('bits').innerHTML = '';
+    $('chip').classList.remove('show'); $('result').classList.remove('show'); $('url').textContent = '';
+    token.classList.remove('show'); token.style.transition = 'none'; token.style.left = centerX(0) + 'px';
+    void token.offsetWidth; token.style.transition = '';
+    setCaption(0, 'Listo');
+  }
+  function activate(i) {
+    zones.forEach((z, k) => { z.classList.toggle('on', k === i); if (k < i) z.classList.add('done'); });
+    setCaption(i + 1, `Paso ${i + 1} / 4`);
+  }
+  async function travel(from, ok) {
+    arrows[from].classList.add('on');
+    token.classList.add('show');
+    await sleep(60); if (!ok()) return;
+    token.style.left = centerX(from + 1) + 'px';
+    await sleep(800); if (!ok()) return;
+    token.classList.remove('show');
+  }
+
+  async function play() {
+    const id = ++run; const ok = () => id === run;
+    reset();
+    await sleep(500); if (!ok()) return;
+
+    // 1. Cámara
+    activate(0);
+    counter = setInterval(() => { frameNo += 1; $('fcount').textContent = String(frameNo).padStart(4, '0'); }, 33);
+    await sleep(3200); if (!ok()) return;
+    clearInterval(counter);
+
+    // 2. Fotograma
+    await travel(0, ok); if (!ok()) return;
+    activate(1);
+    $('frame').classList.add('show');
+    await sleep(1100); if (!ok()) return;
+    $('frame').classList.add('gray'); $('flabel').classList.add('show');
+    await sleep(2400); if (!ok()) return;
+
+    // 3. Motor de visión
+    await travel(1, ok); if (!ok()) return;
+    activate(2);
+    for (const f of document.querySelectorAll('.fb')) { await sleep(450); if (!ok()) return; f.classList.add('show'); }
+    await sleep(350); if (!ok()) return;
+    $('scan').classList.add('go');
+    await sleep(1400); if (!ok()) return;
+    for (const ch of URL_TEXT.slice(0, 4)) {
+      const row = document.createElement('div');
+      row.innerHTML = `${ch.charCodeAt(0).toString(2).padStart(8, '0')} → <span>${ch}</span>`;
+      $('bits').appendChild(row);
+      await sleep(40); row.classList.add('show');
+      await sleep(380); if (!ok()) return;
+    }
+    await sleep(900); if (!ok()) return;
+
+    // 4. Texto
+    await travel(2, ok); if (!ok()) return;
+    activate(3);
+    $('chip').classList.add('show');
+    await sleep(500); if (!ok()) return;
+    $('result').classList.add('show');
+    await sleep(400); if (!ok()) return;
+    for (let k = 1; k <= URL_TEXT.length; k++) {
+      $('url').textContent = URL_TEXT.slice(0, k);
+      await sleep(45); if (!ok()) return;
+    }
+    await sleep(1600); if (!ok()) return;
+
+    // Final
+    zones[3].classList.remove('on'); zones[3].classList.add('done');
+    setCaption(5, 'Resultado');
+    dots.forEach((d) => d.classList.add('on'));
+    await sleep(3500); if (!ok()) return;
+    if ($('loop').getAttribute('aria-pressed') === 'true') play();
+  }
+
+  // ---------- Controles ----------
+  $('play').addEventListener('click', play);
+  $('loop').addEventListener('click', (e) => {
+    const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+    e.currentTarget.setAttribute('aria-pressed', String(on));
+  });
+  async function toggleFull() {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await wrap.requestFullscreen();
+    } catch (err) { /* pantalla completa no disponible aquí */ }
+  }
+  $('full').addEventListener('click', toggleFull);
+  $('clean').addEventListener('click', () => document.body.classList.add('clean'));
+  document.addEventListener('keydown', (e) => {
+    if (e.target.closest && e.target.closest('button') && e.key === ' ') return;
+    if (e.key === ' ') { e.preventDefault(); play(); }
+    else if (e.key === 'f' || e.key === 'F') toggleFull();
+    else if (e.key === 'h' || e.key === 'H') document.body.classList.toggle('clean');
+  });
+  document.addEventListener('fullscreenchange', fit);
+})();
+</script>
+
+</body></html>
