@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Escáner QR con Flutter</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+  html, body { margin: 0; height: 100%; background: #081A1D; overflow: hidden; font-family: 'Rubik', Arial, sans-serif; }
+  #viewport { position: fixed; inset: 0; }
+  #deck { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+  #deck > section { position: absolute; inset: 0; width: 1920px; height: 1080px; box-sizing: border-box; overflow: hidden;
+    opacity: 0; visibility: hidden; transition: opacity .45s ease, visibility 0s linear .45s; }
+  #deck > section.active { opacity: 1; visibility: visible; transition: opacity .45s ease; }
+  #deck section * { margin: 0; box-sizing: border-box; }
+  #deck section aside { display: none; }
+  #deck section table { border-collapse: collapse; width: 100%; }
+  #deck section th, #deck section td { border: 1px solid #D5E3DF; padding: .35em .6em; text-align: left; font-weight: 400; }
+  #deck section th { background: #E7EEEC; font-weight: 700; }
+  #deck section a { text-decoration: underline; text-underline-offset: 6px; }
+
+  #ui { position: fixed; right: 16px; bottom: 16px; display: flex; gap: 8px; align-items: center; z-index: 20;
+    font: 500 14px 'Rubik', Arial, sans-serif; transition: opacity .3s; }
+  #ui button { font: inherit; padding: 8px 12px; border-radius: 8px; border: 1px solid #5EEAD4; background: rgba(8, 26, 29, .85); color: #F4F7F5; cursor: pointer; }
+  #ui button:focus-visible { outline: 2px solid #5EEAD4; outline-offset: 2px; }
+  #counter { color: #F4F7F5; background: rgba(8, 26, 29, .85); padding: 8px 12px; border-radius: 8px; font-variant-numeric: tabular-nums; }
+  body.clean #ui { opacity: 0; pointer-events: none; }
+  #notes { position: fixed; left: 16px; right: 16px; bottom: 64px; z-index: 20; max-width: 900px; margin: 0 auto;
+    background: rgba(8, 26, 29, .94); color: #F4F7F5; border: 1px solid #5EEAD4; border-radius: 12px; padding: 16px 20px;
+    font: 400 17px/1.5 'Rubik', Arial, sans-serif; }
+  #help { position: fixed; left: 16px; bottom: 16px; z-index: 20; color: #BFD8D5; font: 400 13px 'Rubik', Arial, sans-serif;
+    background: rgba(8, 26, 29, .85); padding: 8px 12px; border-radius: 8px; transition: opacity .3s; }
+  body.clean #help { opacity: 0; }
+  @media (prefers-reduced-motion: reduce) { #deck > section, #deck > section.active { transition: none; } }
+</style>
+</head>
+<body>
+<div id="viewport"><div id="deck">
+<section id="cover" data-transition="fade" style="background:#0F2A2E;color:#F4F7F5;font-family:'Rubik', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;justify-content:center;gap:40px">
+<svg aria-label="Ilustración de un código QR" viewBox="0 0 420 420" width="420" height="420" style="position:absolute;right:160px;top:330px;width:420px;height:420px"><rect x="0" y="0" width="420" height="420" rx="36" fill="#14B8A6"/><g fill="#0F2A2E"><rect x="40" y="40" width="110" height="110" rx="10"/><rect x="270" y="40" width="110" height="110" rx="10"/><rect x="40" y="270" width="110" height="110" rx="10"/></g><g fill="#14B8A6"><rect x="60" y="60" width="70" height="70" rx="6"/><rect x="290" y="60" width="70" height="70" rx="6"/><rect x="60" y="290" width="70" height="70" rx="6"/></g><g fill="#0F2A2E"><rect x="78" y="78" width="34" height="34" rx="4"/><rect x="308" y="78" width="34" height="34" rx="4"/><rect x="78" y="308" width="34" height="34" rx="4"/><rect x="180" y="40" width="30" height="30"/><rect x="220" y="80" width="30" height="30"/><rect x="180" y="120" width="30" height="30"/><rect x="180" y="180" width="30" height="30"/><rect x="220" y="220" width="30" height="30"/><rect x="270" y="180" width="30" height="30"/><rect x="340" y="220" width="40" height="30"/><rect x="40" y="180" width="30" height="30"/><rect x="100" y="220" width="30" height="30"/><rect x="180" y="270" width="30" height="30"/><rect x="220" y="330" width="30" height="50"/><rect x="290" y="290" width="30" height="30"/><rect x="340" y="340" width="40" height="40"/><rect x="290" y="350" width="30" height="30"/></g></svg>
+<p style="font-size:32px;font-weight:500;color:#5EEAD4;letter-spacing:4px;text-transform:uppercase">Programación Móvil · SS603</p>
+<h1 style="font-family:'Rubik', Arial, sans-serif;font-size:120px;font-weight:700;line-height:1.05;width:1100px">Escáner QR y código de barras con Flutter</h1>
+<p style="font-size:44px;color:#BFD8D5;width:1100px">Permisos de cámara en Android, iOS y Web</p>
+<p style="position:absolute;left:128px;bottom:96px;width:1200px;font-size:32px;color:#F4F7F5">Julio Adrian Vieira Donado · Grupo [__]</p>
+<aside>Portada. Preséntate en cámara: nombre, curso y grupo. Di el tema: escáner de códigos QR y de barras con Flutter.</aside>
+</section>
+
+<section id="agenda" data-transition="fade" style="background:#F4F7F5;color:#0F2A2E;font-family:'Rubik', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:64px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:500;color:#0F766E;letter-spacing:4px;text-transform:uppercase">Agenda</p>
+<h2 style="font-size:72px;font-weight:700;line-height:1.1">Lo que vamos a ver</h2>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:32px">
+<div style="display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:40px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:44px;font-weight:700;color:#0F766E">01</p>
+<h3 style="font-size:32px;font-weight:500">Qué es y cómo funciona</h3>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:40px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:44px;font-weight:700;color:#0F766E">02</p>
+<h3 style="font-size:32px;font-weight:500">Casos de uso y paquete</h3>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:40px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:44px;font-weight:700;color:#0F766E">03</p>
+<h3 style="font-size:32px;font-weight:500">Permisos en Android, iOS y Web</h3>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:40px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:44px;font-weight:700;color:#0F766E">04</p>
+<h3 style="font-size:32px;font-weight:500">Implementación del código</h3>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:40px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:44px;font-weight:700;color:#0F766E">05</p>
+<h3 style="font-size:32px;font-weight:500">Demo: aceptar y negar el permiso</h3>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;background:#0F2A2E;border-radius:20px;padding:40px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:44px;font-weight:700;color:#5EEAD4">06</p>
+<h3 style="font-size:32px;font-weight:500;color:#F4F7F5">Conclusiones y repositorio</h3>
+</div>
+</div>
+<aside>Recorre los seis puntos rápido, unos 15 segundos. Es la agenda que exige la introducción.</aside>
+</section>
+
+<section id="que-es" data-transition="fade" style="background:#F4F7F5;color:#0F2A2E;font-family:'Rubik', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:56px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:500;color:#0F766E;letter-spacing:4px;text-transform:uppercase">01 · Qué es</p>
+<h2 style="font-size:72px;font-weight:700;line-height:1.1">Dos formas de guardar datos en una imagen</h2>
+</div>
+<div style="display:flex;gap:40px;flex:1">
+<div style="flex:1;display:flex;gap:40px;align-items:center;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:24px;padding:48px">
+<svg aria-label="Código QR de ejemplo" viewBox="0 0 200 200" width="200" height="200" style="width:200px;height:200px"><rect width="200" height="200" fill="#FFFFFF"/><g fill="#0F2A2E"><rect x="10" y="10" width="56" height="56"/><rect x="134" y="10" width="56" height="56"/><rect x="10" y="134" width="56" height="56"/></g><g fill="#FFFFFF"><rect x="20" y="20" width="36" height="36"/><rect x="144" y="20" width="36" height="36"/><rect x="20" y="144" width="36" height="36"/></g><g fill="#0F2A2E"><rect x="29" y="29" width="18" height="18"/><rect x="153" y="29" width="18" height="18"/><rect x="29" y="153" width="18" height="18"/><rect x="80" y="10" width="14" height="14"/><rect x="100" y="30" width="14" height="14"/><rect x="80" y="50" width="14" height="14"/><rect x="80" y="80" width="14" height="14"/><rect x="100" y="100" width="14" height="14"/><rect x="134" y="80" width="14" height="14"/><rect x="170" y="100" width="20" height="14"/><rect x="10" y="80" width="14" height="14"/><rect x="40" y="100" width="14" height="14"/><rect x="80" y="134" width="14" height="14"/><rect x="100" y="160" width="14" height="30"/><rect x="140" y="140" width="14" height="14"/><rect x="170" y="170" width="20" height="20"/></g></svg>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px">
+<h3 style="font-size:44px;font-weight:700">Código QR</h3>
+<p style="font-size:24px;font-weight:500;color:#0F766E">2D · en dos direcciones</p>
+<p style="font-size:32px;color:#3D5552;line-height:1.35">Guarda texto: enlaces, Wi-Fi, pagos, contactos.</p>
+</div>
+</div>
+<div style="flex:1;display:flex;gap:40px;align-items:center;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:24px;padding:48px">
+<svg aria-label="Código de barras de ejemplo" viewBox="0 0 200 200" width="200" height="200" style="width:200px;height:200px"><rect width="200" height="200" fill="#FFFFFF"/><g fill="#0F2A2E"><rect x="10" y="30" width="6" height="140"/><rect x="22" y="30" width="3" height="140"/><rect x="30" y="30" width="9" height="140"/><rect x="45" y="30" width="3" height="140"/><rect x="53" y="30" width="6" height="140"/><rect x="65" y="30" width="3" height="140"/><rect x="72" y="30" width="9" height="140"/><rect x="87" y="30" width="3" height="140"/><rect x="95" y="30" width="6" height="140"/><rect x="107" y="30" width="3" height="140"/><rect x="115" y="30" width="9" height="140"/><rect x="130" y="30" width="6" height="140"/><rect x="142" y="30" width="3" height="140"/><rect x="150" y="30" width="9" height="140"/><rect x="165" y="30" width="3" height="140"/><rect x="172" y="30" width="6" height="140"/><rect x="184" y="30" width="6" height="140"/></g></svg>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px">
+<h3 style="font-size:44px;font-weight:700">Código de barras</h3>
+<p style="font-size:24px;font-weight:500;color:#0F766E">1D · en una dirección</p>
+<p style="font-size:32px;color:#3D5552;line-height:1.35">Guarda un número: productos (EAN-13), inventario.</p>
+</div>
+</div>
+</div>
+<aside>Explica la diferencia: el QR guarda información en dos dimensiones, por eso cabe un enlace completo. El código de barras solo guarda un número corto, como el de los productos del supermercado.</aside>
+</section>
+
+<section id="como-funciona" data-transition="fade" style="background:#F4F7F5;color:#0F2A2E;font-family:'Rubik', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:56px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:500;color:#0F766E;letter-spacing:4px;text-transform:uppercase">01 · Cómo funciona</p>
+<h2 style="font-size:72px;font-weight:700;line-height:1.1">De la cámara al texto en milisegundos</h2>
+</div>
+<div style="display:flex;align-items:center;gap:16px">
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:16px;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:36px">
+<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#0F766E;width:64px;height:64px"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+<h3 style="font-size:32px;font-weight:700;text-align:center">Cámara</h3>
+<p style="font-size:24px;color:#3D5552;text-align:center">Captura video en vivo</p>
+</div>
+<svg aria-hidden="true" viewBox="0 0 72 24" style="flex:none;width:72px;height:24px"><line x1="4" y1="12" x2="64" y2="12" stroke="#0F766E" stroke-width="4" stroke-linecap="round"/><path d="M54 3 L65 12 L54 21" fill="none" stroke="#0F766E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:16px;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:36px">
+<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#0F766E;width:64px;height:64px"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+<h3 style="font-size:32px;font-weight:700;text-align:center">Fotograma</h3>
+<p style="font-size:24px;color:#3D5552;text-align:center">Se analiza cada imagen</p>
+</div>
+<svg aria-hidden="true" viewBox="0 0 72 24" style="flex:none;width:72px;height:24px"><line x1="4" y1="12" x2="64" y2="12" stroke="#0F766E" stroke-width="4" stroke-linecap="round"/><path d="M54 3 L65 12 L54 21" fill="none" stroke="#0F766E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:16px;background:#0F2A2E;border-radius:20px;padding:36px">
+<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#5EEAD4;width:64px;height:64px"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2z"/></svg>
+<h3 style="font-size:32px;font-weight:700;text-align:center;color:#F4F7F5">Motor de visión</h3>
+<p style="font-size:24px;color:#BFD8D5;text-align:center">Detecta y decodifica</p>
+</div>
+<svg aria-hidden="true" viewBox="0 0 72 24" style="flex:none;width:72px;height:24px"><line x1="4" y1="12" x2="64" y2="12" stroke="#0F766E" stroke-width="4" stroke-linecap="round"/><path d="M54 3 L65 12 L54 21" fill="none" stroke="#0F766E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:16px;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:36px">
+<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#0F766E;width:64px;height:64px"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg>
+<h3 style="font-size:32px;font-weight:700;text-align:center">Texto</h3>
+<p style="font-size:24px;color:#3D5552;text-align:center">Llega a la app en onDetect</p>
+</div>
+</div>
+<table style="font-size:28px;color:#0F2A2E;font-family:'Rubik', Arial, sans-serif">
+<tr><th style="width:25%;text-align:left">Plataforma</th><th style="width:75%;text-align:left">Motor que usa mobile_scanner</th></tr>
+<tr><td>Android</td><td>CameraX + Google ML Kit</td></tr>
+<tr><td>iOS</td><td>AVFoundation + Apple Vision</td></tr>
+<tr><td>Web</td><td>BarcodeDetector del navegador o ZXing</td></tr>
+</table>
+<aside>Explica el flujo con el diagrama: la cámara manda imágenes, el motor de visión busca el patrón del código y lo convierte en texto. Luego señala la tabla: cada plataforma usa su propio motor, pero en Flutter el código es el mismo.</aside>
+</section>
+
+<section id="animacion" style="background:#F4F7F5;padding:0"><iframe title="Animación: cómo funciona el lector" srcdoc="&lt;!doctype html&gt;&lt;html lang=&quot;es&quot;&gt;&lt;head&gt;&lt;meta charset=&quot;utf-8&quot;&gt;&lt;/head&gt;&lt;body class=&quot;clean&quot;&gt;&lt;title&gt;Lector QR en acción&lt;/title&gt;
+&lt;link rel=&quot;preconnect&quot; href=&quot;https://fonts.googleapis.com&quot;&gt;
+&lt;link rel=&quot;stylesheet&quot; href=&quot;https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&amp;family=JetBrains+Mono:wght@400;700&amp;display=swap&quot;&gt;
+&lt;style&gt;
+/* Layout: un escenario fijo 1600×900 (16:9) escalado al ancho disponible, con controles debajo.
+   Paleta única y deliberada (la misma de las diapositivas), clara en cualquier tema. */
+:root {
+  --bg: #F4F7F5;      /* fondo de diapositiva */
+  --card: #FFFFFF;
+  --ink: #0F2A2E;     /* tinta / tarjeta oscura */
+  --ink-2: #163A3F;
+  --teal: #0F766E;    /* acento sobre claro */
+  --mint: #5EEAD4;    /* acento sobre oscuro */
+  --muted: #3D5552;
+  --soft: #BFD8D5;
+  --line: #D5E3DF;
+  --font-display: &#x27;Rubik&#x27;, Arial, sans-serif;
+  --font-mono: &#x27;JetBrains Mono&#x27;, &#x27;Courier New&#x27;, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--bg); color: var(--ink); }
+body { font-family: var(--font-display); }
+.page { padding-block: 24px; padding-inline: 16px; display: flex; flex-direction: column; gap: 16px; align-items: center; }
+
+/* ---------- Escenario ---------- */
+.wrap { position: relative; width: 100%; max-width: 1600px; aspect-ratio: 16 / 9; overflow: hidden; background: var(--bg); border-radius: 12px; border: 1px solid var(--line); }
+.wrap:fullscreen { max-width: none; width: 100vw; height: 100vh; aspect-ratio: auto; border: none; border-radius: 0; }
+.stage { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0; }
+
+.eyebrow { position: absolute; left: 80px; top: 62px; margin: 0; font-size: 20px; font-weight: 500; letter-spacing: 4px; text-transform: uppercase; color: var(--teal); }
+.title { position: absolute; left: 80px; top: 92px; margin: 0; font-size: 60px; font-weight: 700; line-height: 1.1; color: var(--ink); }
+
+/* ---------- Zonas ---------- */
+.zone { position: absolute; top: 220px; width: 300px; height: 430px; background: var(--card); border: 2px solid var(--line); border-radius: 24px;
+  display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 22px 20px;
+  opacity: .38; transition: opacity .5s, transform .5s, border-color .5s, box-shadow .5s, background .5s; }
+.zone.on { opacity: 1; border-color: var(--teal); transform: translateY(-8px); box-shadow: 0 22px 48px rgba(15, 118, 110, .20); }
+.zone.done { opacity: 1; }
+.zone.dark { background: var(--ink); border-color: var(--ink); }
+.zone.dark.on { border-color: var(--mint); }
+.zhead { display: flex; align-items: center; gap: 12px; }
+.num { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-mono); font-weight: 700; font-size: 18px; background: var(--teal); color: #FFFFFF; }
+.dark .num { background: var(--mint); color: var(--ink); }
+.zname { font-size: 28px; font-weight: 700; color: var(--ink); }
+.dark .zname { color: #F4F7F5; }
+.zsub { margin: 0; font-size: 19px; color: var(--muted); text-align: center; }
+.dark .zsub { color: var(--soft); }
+.vis { position: relative; width: 260px; height: 286px; display: grid; place-items: center; }
+.check { position: absolute; top: -14px; right: -14px; width: 40px; height: 40px; border-radius: 50%; background: var(--teal); color: #FFFFFF;
+  display: grid; place-items: center; font-weight: 700; font-size: 22px; transform: scale(0); transition: transform .35s cubic-bezier(.3,1.6,.5,1); }
+.dark .check { background: var(--mint); color: var(--ink); }
+.zone.done .check { transform: scale(1); }
+
+/* Zona 1: cámara */
+.phone { position: relative; width: 168px; height: 262px; border: 7px solid var(--ink); border-radius: 30px; background: #2B4448; overflow: hidden; display: grid; place-items: center; }
+.phone::before { content: &quot;&quot;; position: absolute; top: 8px; left: 50%; width: 44px; height: 7px; border-radius: 4px; background: var(--ink); transform: translateX(-50%); z-index: 3; }
+.feed { position: absolute; inset: 0; background: linear-gradient(160deg, #6B5A45, #3E4E4C 60%, #2B4448); }
+.liveqr { position: relative; width: 104px; height: 104px; transform: rotate(-6deg); }
+.on .liveqr { animation: wobble 1.4s ease-in-out infinite; }
+@keyframes wobble { 0%,100% { transform: rotate(-6deg) translate(0,0); } 50% { transform: rotate(-3deg) translate(3px,-4px); } }
+.vf { position: absolute; width: 30px; height: 30px; border: 4px solid var(--mint); z-index: 2; }
+.vf.tl { top: 52px; left: 22px; border-right: none; border-bottom: none; }
+.vf.tr { top: 52px; right: 22px; border-left: none; border-bottom: none; }
+.vf.bl { bottom: 52px; left: 22px; border-right: none; border-top: none; }
+.vf.br { bottom: 52px; right: 22px; border-left: none; border-top: none; }
+.on .vf { animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+.rec { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 2; white-space: nowrap;
+  font-family: var(--font-mono); font-size: 13px; color: #F4F7F5; background: rgba(15, 42, 46, .8); padding: 4px 10px; border-radius: 99px; }
+.rec b { color: #F87171; }
+
+/* Zona 2: fotograma */
+.frame { position: relative; width: 226px; height: 226px; padding: 16px; border-radius: 10px; border: 3px solid var(--ink);
+  background: linear-gradient(135deg, #E7C79F, #B88E66); opacity: 0; transform: scale(.4); transition: opacity .4s, transform .5s cubic-bezier(.3,1.4,.5,1), filter .8s; }
+.frame.show { opacity: 1; transform: scale(1); }
+.frame.gray { filter: grayscale(1) contrast(1.35); }
+.frame svg { width: 100%; height: 100%; display: block; }
+.grid { position: absolute; inset: 16px; opacity: 0; transition: opacity .6s;
+  background-image: repeating-linear-gradient(0deg, rgba(15,118,110,.55) 0 1px, transparent 1px 7.76px), repeating-linear-gradient(90deg, rgba(15,118,110,.55) 0 1px, transparent 1px 7.76px); }
+.frame.gray .grid { opacity: 1; }
+.flabel { position: absolute; left: 50%; bottom: -2px; transform: translateX(-50%); white-space: nowrap; font-family: var(--font-mono); font-size: 15px;
+  color: var(--teal); opacity: 0; transition: opacity .4s; }
+.flabel.show { opacity: 1; }
+
+/* Zona 3: motor de visión */
+.engine { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.eqr { position: relative; width: 164px; height: 164px; background: #FFFFFF; border-radius: 8px; overflow: hidden; }
+.eqr svg { width: 100%; height: 100%; display: block; }
+.fb { position: absolute; width: 32%; height: 32%; border: 4px solid #F59E0B; border-radius: 6px; transform: scale(1.6); opacity: 0;
+  transition: transform .35s cubic-bezier(.3,1.5,.5,1), opacity .25s; }
+.fb.show { transform: scale(1); opacity: 1; }
+.fb.a { left: 6%; top: 6%; } .fb.b { left: 62%; top: 6%; } .fb.c { left: 6%; top: 62%; }
+.scan { position: absolute; left: 0; right: 0; top: -6px; height: 6px; background: var(--mint); box-shadow: 0 0 18px 6px rgba(94, 234, 212, .7); opacity: 0; }
+.scan.go { animation: sweep 1.4s linear forwards; }
+@keyframes sweep { 0% { top: -6px; opacity: 1; } 95% { opacity: 1; } 100% { top: 164px; opacity: 0; } }
+.bits { display: flex; flex-direction: column; gap: 4px; font-family: var(--font-mono); font-size: 18px; color: #F4F7F5; min-height: 108px; }
+.bits div { opacity: 0; transform: translateY(6px); transition: opacity .25s, transform .25s; white-space: nowrap; }
+.bits div.show { opacity: 1; transform: none; }
+.bits span { color: var(--mint); font-weight: 700; }
+
+/* Zona 4: texto en la app */
+.app { position: relative; width: 210px; height: 262px; border: 7px solid var(--ink); border-radius: 30px; background: #F7FAF9; overflow: hidden; display: flex; flex-direction: column; }
+.appbar { height: 46px; background: var(--teal); color: #FFFFFF; font-size: 15px; font-weight: 500; display: flex; align-items: flex-end; padding: 0 12px 8px; }
+.result { margin: 14px 10px; padding: 12px; border-radius: 12px; background: #FFFFFF; border: 1px solid var(--line); box-shadow: 0 6px 16px rgba(15, 42, 46, .10);
+  display: flex; flex-direction: column; gap: 6px; opacity: 0; transform: translateY(10px) scale(.95); transition: opacity .35s, transform .4s cubic-bezier(.3,1.4,.5,1); }
+.result.show { opacity: 1; transform: none; }
+.result h4 { margin: 0; font-size: 16px; color: var(--ink); display: flex; gap: 6px; align-items: center; }
+.url { font-family: var(--font-mono); font-size: 13px; color: var(--teal); word-break: break-all; min-height: 52px; }
+.caret { display: inline-block; width: 7px; height: 14px; background: var(--teal); vertical-align: -2px; animation: pulse .8s steps(1) infinite; }
+.chip { position: absolute; top: -6px; left: 50%; transform: translate(-50%, -8px); white-space: nowrap; z-index: 4;
+  font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--ink); background: var(--mint); padding: 5px 12px; border-radius: 99px;
+  opacity: 0; transition: opacity .3s, transform .35s; }
+.chip.show { opacity: 1; transform: translate(-50%, -18px); }
+
+/* Flechas y ficha viajera */
+.arrow { position: absolute; top: 425px; width: 64px; height: 24px; }
+.arrow line, .arrow path { stroke: var(--line); stroke-width: 4; fill: none; stroke-linecap: round; stroke-linejoin: round; transition: stroke .4s; }
+.arrow.on line, .arrow.on path { stroke: var(--teal); }
+.token { position: absolute; top: 400px; width: 76px; height: 76px; padding: 7px; background: #FFFFFF; border: 3px solid var(--teal); border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(15, 42, 46, .25); opacity: 0; z-index: 10; transition: left .75s cubic-bezier(.6,0,.3,1), opacity .2s; }
+.token.show { opacity: 1; }
+.token svg { width: 100%; height: 100%; display: block; }
+
+/* Leyenda inferior */
+.caption { position: absolute; left: 80px; top: 690px; width: 1440px; height: 116px; border-radius: 24px; background: var(--ink); color: #F4F7F5;
+  display: flex; align-items: center; gap: 32px; padding: 0 40px; }
+.stepno { font-family: var(--font-mono); font-size: 20px; font-weight: 700; color: var(--mint); white-space: nowrap; min-width: 120px; }
+.captext { flex: 1; font-size: 30px; line-height: 1.3; margin: 0; transition: opacity .3s; text-wrap: balance; }
+.dots { display: flex; gap: 10px; }
+.dots i { width: 14px; height: 14px; border-radius: 50%; background: var(--ink-2); border: 2px solid var(--soft); transition: background .3s; }
+.dots i.on { background: var(--mint); border-color: var(--mint); }
+.foot { position: absolute; left: 80px; top: 832px; margin: 0; font-size: 20px; color: var(--muted); font-family: var(--font-mono); }
+
+/* ---------- Controles ---------- */
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; max-width: 1600px; width: 100%; }
+.controls button { font: 500 15px var(--font-display); padding: 10px 18px; border-radius: 10px; border: 2px solid var(--teal); background: var(--card); color: var(--teal); cursor: pointer; }
+.controls button.primary { background: var(--teal); color: #FFFFFF; }
+.controls button[aria-pressed=&quot;true&quot;] { background: #DDF3EF; }
+.controls button:focus-visible { outline: 3px solid var(--mint); outline-offset: 2px; }
+.hint { font-size: 14px; color: var(--muted); }
+body.clean .controls { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+&lt;/style&gt;
+
+&lt;div class=&quot;page&quot;&gt;
+  &lt;div class=&quot;wrap&quot; id=&quot;wrap&quot;&gt;
+    &lt;div class=&quot;stage&quot; id=&quot;stage&quot; aria-label=&quot;Animación: cómo funciona el lector de códigos QR&quot;&gt;
+      &lt;p class=&quot;eyebrow&quot;&gt;Cómo funciona el lector&lt;/p&gt;
+      &lt;h2 class=&quot;title&quot;&gt;De la cámara al texto&lt;/h2&gt;
+
+      &lt;div class=&quot;zone&quot; id=&quot;z0&quot; style=&quot;left:80px&quot;&gt;
+        &lt;div class=&quot;zhead&quot;&gt;&lt;span class=&quot;num&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;zname&quot;&gt;Cámara&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;vis&quot;&gt;
+          &lt;div class=&quot;phone&quot;&gt;
+            &lt;div class=&quot;feed&quot;&gt;&lt;/div&gt;
+            &lt;span class=&quot;vf tl&quot;&gt;&lt;/span&gt;&lt;span class=&quot;vf tr&quot;&gt;&lt;/span&gt;&lt;span class=&quot;vf bl&quot;&gt;&lt;/span&gt;&lt;span class=&quot;vf br&quot;&gt;&lt;/span&gt;
+            &lt;div class=&quot;liveqr&quot; id=&quot;qrLive&quot;&gt;&lt;/div&gt;
+            &lt;span class=&quot;rec&quot;&gt;&lt;b&gt;●&lt;/b&gt; REC · &lt;span id=&quot;fcount&quot;&gt;0000&lt;/span&gt;&lt;/span&gt;
+          &lt;/div&gt;
+          &lt;span class=&quot;check&quot;&gt;✓&lt;/span&gt;
+        &lt;/div&gt;
+        &lt;p class=&quot;zsub&quot;&gt;Captura video en vivo&lt;/p&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;zone&quot; id=&quot;z1&quot; style=&quot;left:460px&quot;&gt;
+        &lt;div class=&quot;zhead&quot;&gt;&lt;span class=&quot;num&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;zname&quot;&gt;Fotograma&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;vis&quot;&gt;
+          &lt;div class=&quot;frame&quot; id=&quot;frame&quot;&gt;&lt;div id=&quot;qrFrame&quot;&gt;&lt;/div&gt;&lt;div class=&quot;grid&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;span class=&quot;flabel&quot; id=&quot;flabel&quot;&gt;escala de grises → módulos&lt;/span&gt;
+          &lt;span class=&quot;check&quot;&gt;✓&lt;/span&gt;
+        &lt;/div&gt;
+        &lt;p class=&quot;zsub&quot;&gt;Se analiza cada imagen&lt;/p&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;zone dark&quot; id=&quot;z2&quot; style=&quot;left:840px&quot;&gt;
+        &lt;div class=&quot;zhead&quot;&gt;&lt;span class=&quot;num&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;zname&quot;&gt;Motor de visión&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;vis&quot;&gt;
+          &lt;div class=&quot;engine&quot;&gt;
+            &lt;div class=&quot;eqr&quot;&gt;&lt;div id=&quot;qrEngine&quot;&gt;&lt;/div&gt;
+              &lt;span class=&quot;fb a&quot;&gt;&lt;/span&gt;&lt;span class=&quot;fb b&quot;&gt;&lt;/span&gt;&lt;span class=&quot;fb c&quot;&gt;&lt;/span&gt;
+              &lt;span class=&quot;scan&quot; id=&quot;scan&quot;&gt;&lt;/span&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;bits&quot; id=&quot;bits&quot;&gt;&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;span class=&quot;check&quot;&gt;✓&lt;/span&gt;
+        &lt;/div&gt;
+        &lt;p class=&quot;zsub&quot;&gt;Detecta y decodifica&lt;/p&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;zone&quot; id=&quot;z3&quot; style=&quot;left:1220px&quot;&gt;
+        &lt;div class=&quot;zhead&quot;&gt;&lt;span class=&quot;num&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;zname&quot;&gt;Texto&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;vis&quot;&gt;
+          &lt;span class=&quot;chip&quot; id=&quot;chip&quot;&gt;onDetect(captura)&lt;/span&gt;
+          &lt;div class=&quot;app&quot;&gt;
+            &lt;div class=&quot;appbar&quot;&gt;Escáner QR&lt;/div&gt;
+            &lt;div class=&quot;result&quot; id=&quot;result&quot;&gt;
+              &lt;h4&gt;🔗 Enlace detectado&lt;/h4&gt;
+              &lt;div class=&quot;url&quot;&gt;&lt;span id=&quot;url&quot;&gt;&lt;/span&gt;&lt;span class=&quot;caret&quot;&gt;&lt;/span&gt;&lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+          &lt;span class=&quot;check&quot;&gt;✓&lt;/span&gt;
+        &lt;/div&gt;
+        &lt;p class=&quot;zsub&quot;&gt;Llega a la app en onDetect&lt;/p&gt;
+      &lt;/div&gt;
+
+      &lt;svg class=&quot;arrow&quot; id=&quot;a0&quot; style=&quot;left:388px&quot; viewBox=&quot;0 0 64 24&quot; aria-hidden=&quot;true&quot;&gt;&lt;line x1=&quot;4&quot; y1=&quot;12&quot; x2=&quot;56&quot; y2=&quot;12&quot;/&gt;&lt;path d=&quot;M46 3 L57 12 L46 21&quot;/&gt;&lt;/svg&gt;
+      &lt;svg class=&quot;arrow&quot; id=&quot;a1&quot; style=&quot;left:768px&quot; viewBox=&quot;0 0 64 24&quot; aria-hidden=&quot;true&quot;&gt;&lt;line x1=&quot;4&quot; y1=&quot;12&quot; x2=&quot;56&quot; y2=&quot;12&quot;/&gt;&lt;path d=&quot;M46 3 L57 12 L46 21&quot;/&gt;&lt;/svg&gt;
+      &lt;svg class=&quot;arrow&quot; id=&quot;a2&quot; style=&quot;left:1148px&quot; viewBox=&quot;0 0 64 24&quot; aria-hidden=&quot;true&quot;&gt;&lt;line x1=&quot;4&quot; y1=&quot;12&quot; x2=&quot;56&quot; y2=&quot;12&quot;/&gt;&lt;path d=&quot;M46 3 L57 12 L46 21&quot;/&gt;&lt;/svg&gt;
+
+      &lt;div class=&quot;token&quot; id=&quot;token&quot;&gt;&lt;div id=&quot;qrToken&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+
+      &lt;div class=&quot;caption&quot;&gt;
+        &lt;span class=&quot;stepno&quot; id=&quot;stepno&quot;&gt;Listo&lt;/span&gt;
+        &lt;p class=&quot;captext&quot; id=&quot;captext&quot;&gt;Pulsa Reproducir para ver el proceso paso a paso.&lt;/p&gt;
+        &lt;div class=&quot;dots&quot; aria-hidden=&quot;true&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;p class=&quot;foot&quot;&gt;mobile_scanner · Android: ML Kit · iOS: Apple Vision · Web: BarcodeDetector / ZXing&lt;/p&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&quot;controls&quot;&gt;
+    &lt;button class=&quot;primary&quot; id=&quot;play&quot; type=&quot;button&quot;&gt;▶ Reproducir&lt;/button&gt;
+    &lt;button id=&quot;loop&quot; type=&quot;button&quot; aria-pressed=&quot;false&quot;&gt;↻ Repetir en bucle&lt;/button&gt;
+    &lt;button id=&quot;full&quot; type=&quot;button&quot;&gt;⛶ Pantalla completa&lt;/button&gt;
+    &lt;button id=&quot;clean&quot; type=&quot;button&quot;&gt;Ocultar controles&lt;/button&gt;
+    &lt;span class=&quot;hint&quot;&gt;Atajos: Espacio = reproducir · F = pantalla completa · H = mostrar/ocultar controles&lt;/span&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;script&gt;
+(() =&gt; {
+  const $ = (id) =&gt; document.getElementById(id);
+  const URL_TEXT = &#x27;https://pub.dev/packages/mobile_scanner&#x27;;
+
+  // ---------- Código QR de ejemplo (21×21 módulos, ilustrativo) ----------
+  function matrix() {
+    let seed = 20261012;
+    const rnd = () =&gt; ((seed = (seed * 1664525 + 1013904223) &gt;&gt;&gt; 0) / 4294967296);
+    const n = 21, m = [];
+    for (let y = 0; y &lt; n; y++) { m.push([]); for (let x = 0; x &lt; n; x++) m[y].push(rnd() &lt; 0.5); }
+    const finder = (ox, oy) =&gt; {
+      for (let y = -1; y &lt;= 7; y++) for (let x = -1; x &lt;= 7; x++) {
+        const X = ox + x, Y = oy + y;
+        if (X &lt; 0 || Y &lt; 0 || X &gt;= n || Y &gt;= n) continue;
+        const ring = x &gt;= 0 &amp;&amp; x &lt;= 6 &amp;&amp; y &gt;= 0 &amp;&amp; y &lt;= 6 &amp;&amp; (x === 0 || x === 6 || y === 0 || y === 6);
+        const core = x &gt;= 2 &amp;&amp; x &lt;= 4 &amp;&amp; y &gt;= 2 &amp;&amp; y &lt;= 4;
+        m[Y][X] = ring || core;
+      }
+    };
+    finder(0, 0); finder(14, 0); finder(0, 14);
+    for (let i = 8; i &lt; 13; i++) { m[6][i] = i % 2 === 0; m[i][6] = i % 2 === 0; }
+    return m;
+  }
+  const M = matrix();
+  function qrSVG(fg, bg) {
+    let r = &#x27;&#x27;;
+    M.forEach((row, y) =&gt; row.forEach((on, x) =&gt; { if (on) r += `&lt;rect x=&quot;${x + 2}&quot; y=&quot;${y + 2}&quot; width=&quot;1&quot; height=&quot;1&quot;/&gt;`; }));
+    return `&lt;svg viewBox=&quot;0 0 25 25&quot; shape-rendering=&quot;crispEdges&quot; aria-hidden=&quot;true&quot;&gt;&lt;rect width=&quot;25&quot; height=&quot;25&quot; fill=&quot;${bg}&quot;/&gt;&lt;g fill=&quot;${fg}&quot;&gt;${r}&lt;/g&gt;&lt;/svg&gt;`;
+  }
+  $(&#x27;qrLive&#x27;).innerHTML = qrSVG(&#x27;#14262A&#x27;, &#x27;#F4F1EA&#x27;);
+  $(&#x27;qrFrame&#x27;).innerHTML = qrSVG(&#x27;#1E3A40&#x27;, &#x27;#F7F3EA&#x27;);
+  $(&#x27;qrEngine&#x27;).innerHTML = qrSVG(&#x27;#0F2A2E&#x27;, &#x27;#FFFFFF&#x27;);
+  $(&#x27;qrToken&#x27;).innerHTML = qrSVG(&#x27;#0F2A2E&#x27;, &#x27;#FFFFFF&#x27;);
+
+  // ---------- Escalado del escenario 1600×900 ----------
+  const wrap = $(&#x27;wrap&#x27;), stage = $(&#x27;stage&#x27;);
+  function fit() {
+    const r = wrap.getBoundingClientRect();
+    const s = Math.min(r.width / 1600, r.height / 900);
+    stage.style.transform = `translate(${(r.width - 1600 * s) / 2}px, ${(r.height - 900 * s) / 2}px) scale(${s})`;
+  }
+  new ResizeObserver(fit).observe(wrap); fit();
+
+  // ---------- Línea de tiempo ----------
+  const zones = [0, 1, 2, 3].map((i) =&gt; $(&#x27;z&#x27; + i));
+  const arrows = [0, 1, 2].map((i) =&gt; $(&#x27;a&#x27; + i));
+  const dots = [...document.querySelectorAll(&#x27;.dots i&#x27;)];
+  const token = $(&#x27;token&#x27;);
+  const centerX = (i) =&gt; 230 + 380 * i - 38;
+  const captions = [
+    &#x27;Pulsa Reproducir para ver el proceso paso a paso.&#x27;,
+    &#x27;La cámara captura video en vivo: decenas de imágenes por segundo.&#x27;,
+    &#x27;Se toma un fotograma y se pasa a escala de grises para analizar sus módulos.&#x27;,
+    &#x27;El motor de visión ubica los tres cuadros de las esquinas y lee los módulos como bits.&#x27;,
+    &#x27;Los bits se convierten en texto y llegan a la app en la función onDetect.&#x27;,
+    &#x27;Esto se repite con cada fotograma hasta encontrar un código.&#x27;
+  ];
+  let run = 0, counter = null, frameNo = 0;
+  const sleep = (ms) =&gt; new Promise((r) =&gt; setTimeout(r, ms));
+
+  function setCaption(i, label) {
+    $(&#x27;stepno&#x27;).textContent = label;
+    $(&#x27;captext&#x27;).textContent = captions[i];
+    dots.forEach((d, k) =&gt; d.classList.toggle(&#x27;on&#x27;, k &lt; Math.min(i, 4)));
+  }
+  function reset() {
+    clearInterval(counter); frameNo = 0; $(&#x27;fcount&#x27;).textContent = &#x27;0000&#x27;;
+    zones.forEach((z) =&gt; z.classList.remove(&#x27;on&#x27;, &#x27;done&#x27;));
+    arrows.forEach((a) =&gt; a.classList.remove(&#x27;on&#x27;));
+    $(&#x27;frame&#x27;).classList.remove(&#x27;show&#x27;, &#x27;gray&#x27;); $(&#x27;flabel&#x27;).classList.remove(&#x27;show&#x27;);
+    document.querySelectorAll(&#x27;.fb&#x27;).forEach((f) =&gt; f.classList.remove(&#x27;show&#x27;));
+    $(&#x27;scan&#x27;).classList.remove(&#x27;go&#x27;); $(&#x27;bits&#x27;).innerHTML = &#x27;&#x27;;
+    $(&#x27;chip&#x27;).classList.remove(&#x27;show&#x27;); $(&#x27;result&#x27;).classList.remove(&#x27;show&#x27;); $(&#x27;url&#x27;).textContent = &#x27;&#x27;;
+    token.classList.remove(&#x27;show&#x27;); token.style.transition = &#x27;none&#x27;; token.style.left = centerX(0) + &#x27;px&#x27;;
+    void token.offsetWidth; token.style.transition = &#x27;&#x27;;
+    setCaption(0, &#x27;Listo&#x27;);
+  }
+  function activate(i) {
+    zones.forEach((z, k) =&gt; { z.classList.toggle(&#x27;on&#x27;, k === i); if (k &lt; i) z.classList.add(&#x27;done&#x27;); });
+    setCaption(i + 1, `Paso ${i + 1} / 4`);
+  }
+  async function travel(from, ok) {
+    arrows[from].classList.add(&#x27;on&#x27;);
+    token.classList.add(&#x27;show&#x27;);
+    await sleep(60); if (!ok()) return;
+    token.style.left = centerX(from + 1) + &#x27;px&#x27;;
+    await sleep(800); if (!ok()) return;
+    token.classList.remove(&#x27;show&#x27;);
+  }
+
+  async function play() {
+    const id = ++run; const ok = () =&gt; id === run;
+    reset();
+    await sleep(500); if (!ok()) return;
+
+    // 1. Cámara
+    activate(0);
+    counter = setInterval(() =&gt; { frameNo += 1; $(&#x27;fcount&#x27;).textContent = String(frameNo).padStart(4, &#x27;0&#x27;); }, 33);
+    await sleep(3200); if (!ok()) return;
+    clearInterval(counter);
+
+    // 2. Fotograma
+    await travel(0, ok); if (!ok()) return;
+    activate(1);
+    $(&#x27;frame&#x27;).classList.add(&#x27;show&#x27;);
+    await sleep(1100); if (!ok()) return;
+    $(&#x27;frame&#x27;).classList.add(&#x27;gray&#x27;); $(&#x27;flabel&#x27;).classList.add(&#x27;show&#x27;);
+    await sleep(2400); if (!ok()) return;
+
+    // 3. Motor de visión
+    await travel(1, ok); if (!ok()) return;
+    activate(2);
+    for (const f of document.querySelectorAll(&#x27;.fb&#x27;)) { await sleep(450); if (!ok()) return; f.classList.add(&#x27;show&#x27;); }
+    await sleep(350); if (!ok()) return;
+    $(&#x27;scan&#x27;).classList.add(&#x27;go&#x27;);
+    await sleep(1400); if (!ok()) return;
+    for (const ch of URL_TEXT.slice(0, 4)) {
+      const row = document.createElement(&#x27;div&#x27;);
+      row.innerHTML = `${ch.charCodeAt(0).toString(2).padStart(8, &#x27;0&#x27;)} → &lt;span&gt;${ch}&lt;/span&gt;`;
+      $(&#x27;bits&#x27;).appendChild(row);
+      await sleep(40); row.classList.add(&#x27;show&#x27;);
+      await sleep(380); if (!ok()) return;
+    }
+    await sleep(900); if (!ok()) return;
+
+    // 4. Texto
+    await travel(2, ok); if (!ok()) return;
+    activate(3);
+    $(&#x27;chip&#x27;).classList.add(&#x27;show&#x27;);
+    await sleep(500); if (!ok()) return;
+    $(&#x27;result&#x27;).classList.add(&#x27;show&#x27;);
+    await sleep(400); if (!ok()) return;
+    for (let k = 1; k &lt;= URL_TEXT.length; k++) {
+      $(&#x27;url&#x27;).textContent = URL_TEXT.slice(0, k);
+      await sleep(45); if (!ok()) return;
+    }
+    await sleep(1600); if (!ok()) return;
+
+    // Final
+    zones[3].classList.remove(&#x27;on&#x27;); zones[3].classList.add(&#x27;done&#x27;);
+    setCaption(5, &#x27;Resultado&#x27;);
+    dots.forEach((d) =&gt; d.classList.add(&#x27;on&#x27;));
+    await sleep(3500); if (!ok()) return;
+    if ($(&#x27;loop&#x27;).getAttribute(&#x27;aria-pressed&#x27;) === &#x27;true&#x27;) play();
+  }
+
+  // ---------- Controles ----------
+  $(&#x27;play&#x27;).addEventListener(&#x27;click&#x27;, play);
+  $(&#x27;loop&#x27;).addEventListener(&#x27;click&#x27;, (e) =&gt; {
+    const on = e.currentTarget.getAttribute(&#x27;aria-pressed&#x27;) !== &#x27;true&#x27;;
+    e.currentTarget.setAttribute(&#x27;aria-pressed&#x27;, String(on));
+  });
+  async function toggleFull() {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await wrap.requestFullscreen();
+    } catch (err) { /* pantalla completa no disponible aquí */ }
+  }
+  $(&#x27;full&#x27;).addEventListener(&#x27;click&#x27;, toggleFull);
+  $(&#x27;clean&#x27;).addEventListener(&#x27;click&#x27;, () =&gt; document.body.classList.add(&#x27;clean&#x27;));
+  document.addEventListener(&#x27;keydown&#x27;, (e) =&gt; {
+    if (e.target.closest &amp;&amp; e.target.closest(&#x27;button&#x27;) &amp;&amp; e.key === &#x27; &#x27;) return;
+    if (e.key === &#x27; &#x27;) { e.preventDefault(); play(); }
+    else if (e.key === &#x27;f&#x27; || e.key === &#x27;F&#x27;) toggleFull();
+    else if (e.key === &#x27;h&#x27; || e.key === &#x27;H&#x27;) document.body.classList.toggle(&#x27;clean&#x27;);
+  });
+  document.addEventListener(&#x27;fullscreenchange&#x27;, fit);
+})();
+&lt;/script&gt;
+
+&lt;style&gt;
+  body { margin: 0; }
+  .page { padding: 0 !important; gap: 0 !important; }
+  .wrap { max-width: none !important; border: none !important; border-radius: 0 !important; }
+&lt;/style&gt;
+&lt;script&gt;
+  window.addEventListener(&#x27;message&#x27;, function (e) {
+    if (e.data === &#x27;play&#x27;) document.getElementById(&#x27;play&#x27;).click();
+  });
+&lt;/script&gt;
+&lt;/body&gt;&lt;/html&gt;" style="position:absolute;left:0;top:0;width:1920px;height:1080px;border:0;pointer-events:none"></iframe><aside>Animación del proceso. Se reproduce sola al llegar a esta diapositiva; pulsa R para repetirla. Narra cada paso mientras ocurre: cámara, fotograma, motor de visión y texto.</aside></section>
+<section id="casos" data-transition="fade" style="background:#F4F7F5;color:#0F2A2E;font-family:'Rubik', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:56px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:500;color:#0F766E;letter-spacing:4px;text-transform:uppercase">02 · Casos de uso</p>
+<h2 style="font-size:72px;font-weight:700;line-height:1.1">Lo usamos todos los días</h2>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:32px">
+<div style="display:flex;flex-direction:column;gap:16px;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:40px">
+<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#0F766E;width:56px;height:56px"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.3-9.3"/><path d="m16 7 3 3"/><path d="m18 5 2 2"/></svg>
+<h3 style="font-size:32px;font-weight:700">Pagos con QR</h3>
+<p style="font-size:24px;color:#3D5552">Nequi, Bancolombia, Daviplata</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:40px">
+<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#0F766E;width:56px;height:56px"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>
+<h3 style="font-size:32px;font-weight:700">Menús digitales</h3>
+<p style="font-size:24px;color:#3D5552">Restaurantes sin carta impresa</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:40px">
+<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#0F766E;width:56px;height:56px"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+<h3 style="font-size:32px;font-weight:700">Inventario</h3>
+<p style="font-size:24px;color:#3D5552">Leer el código de barras de cada producto</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:40px">
+<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#0F766E;width:56px;height:56px"><polygon points="12 2 15.1 8.3 22 9.3 17 14.1 18.2 21 12 17.8 5.8 21 7 14.1 2 9.3 8.9 8.3 12 2"/></svg>
+<h3 style="font-size:32px;font-weight:700">Boletas de eventos</h3>
+<p style="font-size:24px;color:#3D5552">Validar la entrada en la puerta</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:40px">
+<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#0F766E;width:56px;height:56px"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></svg>
+<h3 style="font-size:32px;font-weight:700">Asistencia</h3>
+<p style="font-size:24px;color:#3D5552">Registrar estudiantes en clase</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:40px">
+<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#0F766E;width:56px;height:56px"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15 15 0 0 1 0 20a15 15 0 0 1 0-20z"/></svg>
+<h3 style="font-size:32px;font-weight:700">Compartir enlaces</h3>
+<p style="font-size:24px;color:#3D5552">Wi-Fi, redes sociales, páginas web</p>
+</div>
+</div>
+<aside>Da ejemplos reales de Colombia: pagar con Nequi escaneando un QR, el menú de un restaurante, el inventario de una tienda. Escoge dos o tres y cuéntalos con tus palabras.</aside>
+</section>
+
+<section id="paquete" data-transition="fade" style="background:#0F2A2E;color:#F4F7F5;font-family:'Rubik', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:56px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:500;color:#5EEAD4;letter-spacing:4px;text-transform:uppercase">02 · Paquete elegido</p>
+<h2 style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:96px;font-weight:700;line-height:1.1">mobile_scanner</h2>
+<p style="font-size:32px;color:#BFD8D5">Versión 7.4.2 · publicado en pub.dev · licencia BSD-3</p>
+</div>
+<div style="display:flex;gap:32px">
+<div style="flex:1;display:flex;align-items:center;gap:20px;background:#163A3F;border-radius:20px;padding:36px">
+<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#5EEAD4;width:48px;height:48px"><path d="M20 6 9 17l-5-5"/></svg>
+<h3 style="font-size:44px;font-weight:500;color:#F4F7F5">Android</h3>
+</div>
+<div style="flex:1;display:flex;align-items:center;gap:20px;background:#163A3F;border-radius:20px;padding:36px">
+<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#5EEAD4;width:48px;height:48px"><path d="M20 6 9 17l-5-5"/></svg>
+<h3 style="font-size:44px;font-weight:500;color:#F4F7F5">iOS</h3>
+</div>
+<div style="flex:1;display:flex;align-items:center;gap:20px;background:#163A3F;border-radius:20px;padding:36px">
+<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#5EEAD4;width:48px;height:48px"><path d="M20 6 9 17l-5-5"/></svg>
+<h3 style="font-size:44px;font-weight:500;color:#F4F7F5">Web</h3>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;background:#081A1D;border-radius:20px;padding:40px">
+<p style="font-size:24px;color:#BFD8D5">pubspec.yaml</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:36px;color:#F4F7F5">dependencies:<br>  mobile_scanner: <span style="color:#5EEAD4">^7.4.2</span></p>
+</div>
+<aside>Di por qué lo escogiste: es el más usado para escanear códigos, funciona en Android, iOS y Web con el mismo código, y pide el permiso de cámara por sí solo. Muestra la línea que se agrega en pubspec.yaml.</aside>
+</section>
+
+<section id="permisos" data-transition="fade" style="background:#F4F7F5;color:#0F2A2E;font-family:'Rubik', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:48px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:500;color:#0F766E;letter-spacing:4px;text-transform:uppercase">03 · Permisos</p>
+<h2 style="font-size:72px;font-weight:700;line-height:1.1">Un permiso, tres plataformas</h2>
+</div>
+<div style="display:flex;gap:32px;flex:1">
+<div style="flex:1;display:flex;flex-direction:column;gap:20px;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:40px">
+<p style="font-size:24px;font-weight:700;color:#166534;background:#DCFCE7;border-radius:999px;padding:6px 20px;align-self:start">ANDROID</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#0F2A2E">AndroidManifest.xml</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#0F766E;background:#EEF4F2;border-radius:12px;padding:16px">CAMERA</p>
+<p style="font-size:28px;color:#3D5552;line-height:1.35">Se declara en el manifiesto y se pide en tiempo de ejecución.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:20px;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:40px">
+<p style="font-size:24px;font-weight:700;color:#1E293B;background:#E2E8F0;border-radius:999px;padding:6px 20px;align-self:start">iOS</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#0F2A2E">Info.plist</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#0F766E;background:#EEF4F2;border-radius:12px;padding:16px">NSCamera UsageDescription</p>
+<p style="font-size:28px;color:#3D5552;line-height:1.35">Texto que ve el usuario. Sin él, la app se cierra.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:20px;background:#0F2A2E;border-radius:20px;padding:40px">
+<p style="font-size:24px;font-weight:700;color:#1E40AF;background:#DBEAFE;border-radius:999px;padding:6px 20px;align-self:start">WEB</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#F4F7F5">Navegador</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#5EEAD4;background:#163A3F;border-radius:12px;padding:16px">getUserMedia()</p>
+<p style="font-size:28px;color:#BFD8D5;line-height:1.35">Solo con HTTPS o localhost. El navegador muestra su propio aviso.</p>
+</div>
+</div>
+<p style="font-size:28px;color:#0F2A2E"><b>Si el usuario lo niega:</b> la app muestra un mensaje y un botón Reintentar.</p>
+<aside>Esta diapositiva es el resumen. Android e iOS los explicas mostrando los archivos reales en VS Code con zoom; la parte Web la explicas aquí. Termina diciendo que la app maneja el caso en que el usuario niega el permiso.</aside>
+</section>
+
+<section id="impl" data-transition="fade" style="background:#0F2A2E;color:#F4F7F5;font-family:'Rubik', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:64px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:500;color:#5EEAD4;letter-spacing:4px;text-transform:uppercase">04 · Implementación</p>
+<h2 style="font-size:72px;font-weight:700;line-height:1.1">Cuatro archivos, en este orden</h2>
+</div>
+<div style="display:flex;gap:32px">
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#163A3F;border-radius:20px;padding:36px 32px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:44px;font-weight:700;color:#5EEAD4">1</p>
+<h3 style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;font-weight:700;color:#F4F7F5">pubspec.yaml</h3>
+<p style="font-size:24px;color:#BFD8D5">Agrega el paquete mobile_scanner</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#163A3F;border-radius:20px;padding:36px 32px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:44px;font-weight:700;color:#5EEAD4">2</p>
+<h3 style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;font-weight:700;color:#F4F7F5">AndroidManifest .xml</h3>
+<p style="font-size:24px;color:#BFD8D5">Declara el permiso CAMERA en Android</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#163A3F;border-radius:20px;padding:36px 32px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:44px;font-weight:700;color:#5EEAD4">3</p>
+<h3 style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;font-weight:700;color:#F4F7F5">Info.plist</h3>
+<p style="font-size:24px;color:#BFD8D5">Mensaje del permiso de cámara en iOS</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#F4F7F5;border-radius:20px;padding:36px 32px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:44px;font-weight:700;color:#0F766E">4</p>
+<h3 style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;font-weight:700;color:#0F2A2E">lib/main.dart</h3>
+<p style="font-size:24px;color:#3D5552">Pantallas, lectura del código y permiso negado</p>
+</div>
+</div>
+<aside>«Ahora vamos con la implementación. Son cuatro archivos y los vamos a ver en este orden: primero el pubspec.yaml para instalar el paquete, luego el manifiesto de Android y el Info.plist de iOS para los permisos, y por último el main.dart con toda la lógica.»</aside>
+</section>
+
+<section id="impl-pubspec" data-transition="fade" style="background:#F4F7F5;color:#0F2A2E;font-family:'Rubik', Arial, sans-serif;padding:128px;display:flex;flex-direction:row;align-items:center;gap:64px">
+<div style="width:620px;display:flex;flex-direction:column;gap:28px">
+<p style="font-size:24px;font-weight:500;color:#0F766E;letter-spacing:4px;text-transform:uppercase">Paso 1 de 4</p>
+<h2 style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:64px;font-weight:700;line-height:1.1">pubspec.yaml</h2>
+<p style="font-size:32px;color:#3D5552;line-height:1.4">Aquí se declaran las dependencias del proyecto. Agregamos <b>mobile_scanner</b> debajo de flutter.</p>
+<div style="display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:16px;padding:28px">
+<p style="font-size:24px;color:#3D5552">Luego, en la terminal:</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;font-weight:700;color:#0F766E">flutter pub get</p>
+</div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:20px;background:#081A1D;border-radius:24px;padding:48px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#7F9C98">pubspec.yaml</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:34px;line-height:1.6;color:#F4F7F5">dependencies:<br>&#160;&#160;flutter:<br>&#160;&#160;&#160;&#160;sdk: flutter<br>&#160;&#160;<span style="color:#5EEAD4">mobile_scanner: ^7.4.2</span></p>
+</div>
+<aside>«Primero el pubspec.yaml. Aquí se declaran las dependencias del proyecto. Debajo de flutter agregamos mobile_scanner con la versión 7.4.2, y luego ejecutamos flutter pub get para descargarlo. También se puede hacer directo con flutter pub add mobile_scanner.»</aside>
+</section>
+
+<section id="impl-manifest" data-transition="fade" style="background:#F4F7F5;color:#0F2A2E;font-family:'Rubik', Arial, sans-serif;padding:128px;display:flex;flex-direction:row;align-items:center;gap:64px">
+<div style="width:620px;display:flex;flex-direction:column;gap:28px">
+<p style="font-size:24px;font-weight:500;color:#0F766E;letter-spacing:4px;text-transform:uppercase">Paso 2 de 4 · Android</p>
+<h2 style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:52px;font-weight:700;line-height:1.1">AndroidManifest .xml</h2>
+<p style="font-size:24px;font-family:'JetBrains Mono', 'Courier New', monospace;color:#3D5552">android/app/src/main/</p>
+<p style="font-size:32px;color:#3D5552;line-height:1.4">CAMERA es un permiso peligroso: se declara aquí y además se pide en tiempo de ejecución.</p>
+<div style="display:flex;gap:16px;align-items:center;background:#FFF4E0;border:2px solid #F59E0B;border-radius:16px;padding:24px">
+<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#B45309;width:40px;height:40px"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+<p style="font-size:26px;color:#7C2D12">Va fuera de &lt;application&gt;. Adentro, Android lo ignora.</p>
+</div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:20px;background:#081A1D;border-radius:24px;padding:48px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#7F9C98">AndroidManifest.xml</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;line-height:1.6;color:#BFD8D5">&lt;manifest ...&gt;<br><span style="color:#7F9C98">&#160;&#160;&lt;!-- Permiso de cámara --&gt;</span><br><span style="color:#5EEAD4">&#160;&#160;&lt;uses-permission</span><br><span style="color:#5EEAD4">&#160;&#160;&#160;&#160;android:name="android.permission.CAMERA" /&gt;</span><br>&#160;&#160;&lt;uses-feature<br>&#160;&#160;&#160;&#160;android:name="android.hardware.camera"<br>&#160;&#160;&#160;&#160;android:required="false" /&gt;<br><br>&#160;&#160;&lt;application ...&gt;</p>
+</div>
+<aside>«En Android abrimos el AndroidManifest.xml. Declaramos el permiso CAMERA, que es un permiso peligroso: no basta con ponerlo aquí, también se pide al usuario mientras usa la app. La línea uses-feature con required false permite instalar la app aunque el equipo no tenga cámara. Ojo: estas líneas van fuera de la etiqueta application; si las ponen adentro, Android las ignora. Ese error me pasó a mí.»</aside>
+</section>
+
+<section id="impl-plist" data-transition="fade" style="background:#F4F7F5;color:#0F2A2E;font-family:'Rubik', Arial, sans-serif;padding:128px;display:flex;flex-direction:row;align-items:center;gap:64px">
+<div style="width:620px;display:flex;flex-direction:column;gap:28px">
+<p style="font-size:24px;font-weight:500;color:#0F766E;letter-spacing:4px;text-transform:uppercase">Paso 3 de 4 · iOS</p>
+<h2 style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:64px;font-weight:700;line-height:1.1">Info.plist</h2>
+<p style="font-size:24px;font-family:'JetBrains Mono', 'Courier New', monospace;color:#3D5552">ios/Runner/</p>
+<p style="font-size:32px;color:#3D5552;line-height:1.4">El texto de la clave es lo que el usuario lee en el diálogo del permiso.</p>
+<div style="display:flex;gap:16px;align-items:center;background:#FFF4E0;border:2px solid #F59E0B;border-radius:16px;padding:24px">
+<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#B45309;width:40px;height:40px"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+<p style="font-size:26px;color:#7C2D12">Sin esta clave, la app se cierra al abrir la cámara.</p>
+</div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:20px;background:#081A1D;border-radius:24px;padding:48px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#7F9C98">Info.plist</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:28px;line-height:1.6;color:#BFD8D5">&lt;dict&gt;<br><span style="color:#7F9C98">&#160;&#160;...</span><br><span style="color:#5EEAD4">&#160;&#160;&lt;key&gt;NSCameraUsageDescription&lt;/key&gt;</span><br>&#160;&#160;&lt;string&gt;<span style="color:#F5C26B">Necesitamos la cámara para</span><br><span style="color:#F5C26B">&#160;&#160;&#160;&#160;escanear códigos QR y de barras.</span>&lt;/string&gt;<br>&lt;/dict&gt;</p>
+</div>
+<aside>«En iOS abrimos el archivo Info.plist, dentro de ios/Runner, y agregamos la clave NSCameraUsageDescription con un texto que explica para qué usamos la cámara. Ese texto es el que aparece en el diálogo del permiso. Si falta esta clave, iOS cierra la app apenas intenta abrir la cámara.»</aside>
+</section>
+
+<section id="impl-main" data-transition="fade" style="background:#F4F7F5;color:#0F2A2E;font-family:'Rubik', Arial, sans-serif;padding:128px;display:flex;flex-direction:row;align-items:center;gap:56px">
+<div style="width:600px;display:flex;flex-direction:column;gap:24px">
+<p style="font-size:24px;font-weight:500;color:#0F766E;letter-spacing:4px;text-transform:uppercase">Paso 4 de 4 · Lógica</p>
+<h2 style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:64px;font-weight:700;line-height:1.1">main.dart</h2>
+<div style="display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;gap:16px;align-items:start"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;font-weight:700;color:#0F766E">A</p><p style="font-size:26px;color:#3D5552"><b>HomePage:</b> botón Escanear y resultado</p></div>
+<div style="display:flex;gap:16px;align-items:start"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;font-weight:700;color:#0F766E">B</p><p style="font-size:26px;color:#3D5552"><b>ScannerPage:</b> cámara con su controlador</p></div>
+<div style="display:flex;gap:16px;align-items:start"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;font-weight:700;color:#0F766E">C</p><p style="font-size:26px;color:#3D5552"><b>onDetect:</b> recibe el texto del código</p></div>
+<div style="display:flex;gap:16px;align-items:start"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;font-weight:700;color:#B45309">D</p><p style="font-size:26px;color:#3D5552"><b>errorBuilder:</b> maneja el permiso negado</p></div>
+<div style="display:flex;gap:16px;align-items:start"><p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;font-weight:700;color:#0F766E">E</p><p style="font-size:26px;color:#3D5552"><b>dispose:</b> libera la cámara al salir</p></div>
+</div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:20px;background:#081A1D;border-radius:24px;padding:44px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:24px;color:#7F9C98">lib/main.dart · ScannerPage</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:26px;line-height:1.55;color:#BFD8D5">MobileScanner(<br>&#160;&#160;controller: _controller,<br><span style="color:#5EEAD4">&#160;&#160;onDetect: _onDetect,</span><span style="color:#7F9C98">&#160;&#160;// C</span><br><span style="color:#F5C26B">&#160;&#160;errorBuilder: (context, error) =&gt;</span><span style="color:#7F9C98">&#160;&#160;// D</span><br><span style="color:#F5C26B">&#160;&#160;&#160;&#160;_VistaError(</span><br><span style="color:#F5C26B">&#160;&#160;&#160;&#160;&#160;&#160;error: error,</span><br><span style="color:#F5C26B">&#160;&#160;&#160;&#160;&#160;&#160;onReintentar: () =&gt;</span><br><span style="color:#F5C26B">&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;_controller.start(),</span><br><span style="color:#F5C26B">&#160;&#160;&#160;&#160;),</span><br>)</p>
+</div>
+<aside>«Por último el main.dart, que tiene cinco partes. A: HomePage, con el botón Escanear y el resultado. B: ScannerPage, que abre la cámara con un MobileScannerController. C: onDetect, que recibe el texto del código y regresa a la pantalla principal. D, la más importante: errorBuilder, que se ejecuta si el usuario niega el permiso y muestra un mensaje con un botón Reintentar. Y E: dispose, que libera la cámara al salir. Ahora lo vemos en VS Code.» Después de esta diapositiva, pasa a VS Code y muestra cada parte con zoom.</aside>
+</section>
+
+<section id="buenas-practicas" data-transition="fade" style="background:#F4F7F5;color:#0F2A2E;font-family:'Rubik', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;gap:56px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:500;color:#0F766E;letter-spacing:4px;text-transform:uppercase">06 · Buenas prácticas</p>
+<h2 style="font-size:72px;font-weight:700;line-height:1.1">Cuatro reglas para pedir la cámara</h2>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:32px">
+<div style="display:flex;gap:32px;align-items:start;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:40px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:72px;font-weight:700;color:#0F766E;line-height:1">1</p>
+<div style="flex:1;display:flex;flex-direction:column;gap:12px">
+<h3 style="font-size:32px;font-weight:700">Pedir solo al usarla</h3>
+<p style="font-size:24px;color:#3D5552">El permiso se pide al tocar Escanear, no al abrir la app.</p>
+</div>
+</div>
+<div style="display:flex;gap:32px;align-items:start;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:40px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:72px;font-weight:700;color:#0F766E;line-height:1">2</p>
+<div style="flex:1;display:flex;flex-direction:column;gap:12px">
+<h3 style="font-size:32px;font-weight:700">Explicar el porqué</h3>
+<p style="font-size:24px;color:#3D5552">Un texto claro en Info.plist y en la app.</p>
+</div>
+</div>
+<div style="display:flex;gap:32px;align-items:start;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:40px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:72px;font-weight:700;color:#0F766E;line-height:1">3</p>
+<div style="flex:1;display:flex;flex-direction:column;gap:12px">
+<h3 style="font-size:32px;font-weight:700">Manejar siempre el "no"</h3>
+<p style="font-size:24px;color:#3D5552">Mensaje, instrucciones y botón Reintentar en errorBuilder.</p>
+</div>
+</div>
+<div style="display:flex;gap:32px;align-items:start;background:#FFFFFF;border:1px solid #D5E3DF;border-radius:20px;padding:40px">
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:72px;font-weight:700;color:#0F766E;line-height:1">4</p>
+<div style="flex:1;display:flex;flex-direction:column;gap:12px">
+<h3 style="font-size:32px;font-weight:700">Liberar la cámara</h3>
+<p style="font-size:24px;color:#3D5552">Llamar a dispose() del controlador al salir de la pantalla.</p>
+</div>
+</div>
+</div>
+<aside>Cierre, parte 1. Resume las buenas prácticas. Luego menciona una dificultad real que tuviste hoy, por ejemplo configurar scrcpy o la primera compilación.</aside>
+</section>
+
+<section id="cierre" data-transition="fade" style="background:#0F2A2E;color:#F4F7F5;font-family:'Rubik', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;justify-content:center;gap:48px">
+<h1 style="font-size:120px;font-weight:700;line-height:1.05">¡Gracias!</h1>
+<div style="display:flex;flex-direction:column;gap:16px;background:#163A3F;border-radius:20px;padding:40px;align-self:start">
+<p style="font-size:24px;font-weight:500;color:#5EEAD4;letter-spacing:4px;text-transform:uppercase">Repositorio</p>
+<p style="font-family:'JetBrains Mono', 'Courier New', monospace;font-size:40px;color:#F4F7F5"><a href="https://github.com/AdrianVieiraDon/scanner_flutter" style="color:#F4F7F5">github.com/AdrianVieiraDon/scanner_flutter</a></p>
+</div>
+<p style="font-size:32px;color:#BFD8D5">Julio Adrian Vieira Donado · Programación Móvil SS603 · Grupo [__]</p>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#BFD8D5">Créditos: mobile_scanner (steenbakker.dev) · Documentación de Flutter · Música: [nombre de la pista, licencia libre]</p>
+<aside>Agradece, muestra el enlace del repositorio y di tu nombre. Deja la diapositiva unos segundos en pantalla para que se lean los créditos.</aside>
+</section>
+
+</div></div>
+
+<div id="notes" hidden></div>
+<div id="help">← → cambiar · F pantalla completa · H ocultar controles · N notas · R repetir animación</div>
+<div id="ui">
+  <button id="prev" type="button" aria-label="Diapositiva anterior">←</button>
+  <span id="counter">1 / 1</span>
+  <button id="next" type="button" aria-label="Diapositiva siguiente">→</button>
+  <button id="full" type="button">Pantalla completa</button>
+</div>
+
+<script>
+(function () {
+  var deck = document.getElementById('deck');
+  var slides = Array.prototype.slice.call(deck.children);
+  var counter = document.getElementById('counter');
+  var notes = document.getElementById('notes');
+  var current = 0;
+
+  function fit() {
+    var w = window.innerWidth, h = window.innerHeight;
+    var s = Math.min(w / 1920, h / 1080);
+    deck.style.transform = 'translate(' + (w - 1920 * s) / 2 + 'px,' + (h - 1080 * s) / 2 + 'px) scale(' + s + ')';
+  }
+  function playAnimation() {
+    var f = slides[current].querySelector('iframe');
+    if (f && f.contentWindow) f.contentWindow.postMessage('play', '*');
+  }
+  function show(i) {
+    current = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach(function (s, k) { s.classList.toggle('active', k === current); });
+    counter.textContent = (current + 1) + ' / ' + slides.length;
+    var aside = slides[current].querySelector('aside');
+    notes.textContent = aside ? aside.textContent : 'Sin notas para esta diapositiva.';
+    if (slides[current].id === 'animacion') setTimeout(playAnimation, 500);
+    try { history.replaceState(null, '', '#' + (current + 1)); } catch (e) {}
+  }
+  function toggleFull() {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen();
+    } catch (e) {}
+  }
+
+  document.getElementById('prev').addEventListener('click', function () { show(current - 1); });
+  document.getElementById('next').addEventListener('click', function () { show(current + 1); });
+  document.getElementById('full').addEventListener('click', toggleFull);
+  document.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'PageDown' || k === ' ') { e.preventDefault(); show(current + 1); }
+    else if (k === 'ArrowLeft' || k === 'PageUp') { e.preventDefault(); show(current - 1); }
+    else if (k === 'Home') show(0);
+    else if (k === 'End') show(slides.length - 1);
+    else if (k === 'f' || k === 'F') toggleFull();
+    else if (k === 'h' || k === 'H') document.body.classList.toggle('clean');
+    else if (k === 'n' || k === 'N') notes.hidden = !notes.hidden;
+    else if (k === 'r' || k === 'R') playAnimation();
+  });
+  window.addEventListener('resize', fit);
+  window.addEventListener('hashchange', function () {
+    var n = parseInt((location.hash || '').slice(1), 10);
+    if (!isNaN(n) && n - 1 !== current) show(n - 1);
+  });
+  var start = parseInt((location.hash || '').slice(1), 10);
+  fit();
+  show(isNaN(start) ? 0 : start - 1);
+})();
+</script>
+</body>
+</html>
