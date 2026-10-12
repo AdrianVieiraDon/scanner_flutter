@@ -6,7 +6,8 @@ se configuran los permisos de cámara en **Android, iOS y Web**, incluido el
 caso en que el usuario **niega** el permiso.
 
 **Autor:** Julio Adrian Vieira Donado
-**Video:** [(https://youtu.be/4WVFr8mITH0)]
+**Video:** [https://youtu.be/4WVFr8mITH0]
+**Slides:** [https://adrianvieiradon.github.io/scanner_flutter/]
 
 ## Paquete usado
 
